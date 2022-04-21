@@ -1,7 +1,7 @@
 import numpy as np
 import pprint as pp
 import matplotlib.pyplot as plt
-from scipy.stats import special_ortho_group
+#from scipy.stats import special_ortho_group
 from scipy.integrate import solve_ivp
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -35,11 +35,11 @@ class DynamicalSystem(Dataset):
             self.embed()
 
     def __getitem__(self,index):
-        return torch.Tensor(self.Z[:,index]),torch.Tensor(self.dZ[:,index])
+        return self.Z[:,index],self.dZ[:,index]
         if self.embed_params is not None:
-            return torch.Tensor(self.Z[:,index]),torch.Tensor(self.dZ[:,index])
+            return self.Z[:,index],self.dZ[:,index]
         else:
-            return torch.Tensor(self.X[:,index]),torch.Tensor(self.dX[:,index])
+            return self.X[:,index],self.dX[:,index]
     def __len__(self):
         return self.time_steps
     def solve(self):
@@ -49,7 +49,7 @@ class DynamicalSystem(Dataset):
         soln = solve_ivp(self.f, self.time, self.x0, dense_output = True, rtol=1e-8, atol=1e-8)
         x = soln.sol(t)
         dx = np.array([self.f(t[i],x[:,i]) for i in range(0,t.shape[0]) ]).T
-        return torch.Tensor(x), torch.Tensor(dx)
+        return x, dx
 
     def embed(self):
         #embed_params = {'embed_dim' : 10, 'mu' : 0,'sigma' : 0,'mu1' : 0,'sigma1' : 0,'mat' : 'RANDN'}
@@ -61,22 +61,33 @@ class DynamicalSystem(Dataset):
         def emb(w):
             if self.random_seed is not None:
                 np.random.seed(self.random_seed)
-            return np.dot(self.embed_mat[:,:self.state_size], w + self.embed_params['sigma'] * np.random.randn(self.state_size,self.time_steps) + self.embed_params['mu']) + self.embed_params['sigma1']*np.random.randn(self.embed_mat.shape[0],self.time_steps) + self.embed_params['mu1']
+            n0 = self.embed_params['sigma'] * np.random.randn(self.state_size,self.time_steps) + self.embed_params['mu']
+            n1 = self.embed_params['sigma1']*np.random.randn(self.embed_mat.shape[0],self.time_steps) + self.embed_params['mu1']
+            return np.dot(self.embed_mat[:,:self.state_size], w + n0)+n1
         self.Z = emb(self.X)
         self.dZ = emb(self.dX)
     def unembed(self):
         def unemb(w):        
             if self.embed_params['mat'] == 'SO':
-                X = np.dot(w.T,self.embed_mat[:,:self.state_size]).T
+                X = np.dot(T,self.embed_mat[:,:self.state_size]).T
             elif self.embed_params['mat'] == 'RANDN':
                 pinv = np.linalg.pinv(np.dot(self.embed_mat.T,self.embed_mat)) #(m,m)
                 rinv = np.dot(self.embed_mat,pinv)
                 X = np.dot(w.T,rinv).T
-        X = torch.Tensor(unemb(self.Z))
-        dX = torch.Tensor(unemb(self.dZ))
+        X = (unemb(self.Z))
+        dX = unemb(self.dZ)
         return {'X' : X, 'X_err' : np.sum(np.abs(X-self.X)), 'dX' : dX, 'dX_err' : np.sum(np.abs(dX-self.dX))}
 
-    
+    def to(self,device):
+        self.X = torch.Tensor(self.X)
+        self.dX = torch.Tensor(self.dX)
+        self.Z = torch.Tensor(self.Z)
+        self.dZ = torch.Tensor(self.dZ)
+        self.X.to(device)
+        self.dX.to(device)
+        self.Z.to(device)
+        self.dZ.to(device)
+
 class Lorenz(DynamicalSystem):
     def __init__(self):
         self.state_size = 3
@@ -93,18 +104,18 @@ class Lorenz(DynamicalSystem):
                 x * (self.beta[2] - z) - y,
                 x * y - self.beta[1]*z
             ])
-    def plot(self, WIDTH = 1000, HEIGHT = 750, DPI =  100,X=None):
-        fig = plt.figure(figsize=(WIDTH/DPI, HEIGHT/DPI))
-        fig.add_subplot(projection='3d')
-        ax = fig.gca()
-        ax.set_facecolor('k')
-        fig.subplots_adjust(left=0, right=1, bottom=-1, top=1)
-        # Make the line multi-coloured by plotting it in segments of length s which
-        # change in colour across the whole time series.
-        s = 10
-        X = self.X.detach().numpy()
-        for i in range(0,self.time_steps,s):
-            ax.plot(X[0][i:i+s+1], X[1][i:i+s+1], X[2][i:i+s+1], alpha=0.4)
+    # def plot(self, WIDTH = 1000, HEIGHT = 750, DPI =  100,X=None):
+    #     fig = plt.figure(figsize=(WIDTH/DPI, HEIGHT/DPI))
+    #     fig.add_subplot(projection='3d')
+    #     ax = fig.gca()
+    #     ax.set_facecolor('k')
+    #     fig.subplots_adjust(left=0, right=1, bottom=-1, top=1)
+    #     # Make the line multi-coloured by plotting it in segments of length s which
+    #     # change in colour across the whole time series.
+    #     s = 10
+    #     X = self.X.detach().numpy()
+    #     for i in range(0,self.time_steps,s):
+    #         ax.plot(X[0][i:i+s+1], X[1][i:i+s+1], X[2][i:i+s+1], alpha=0.4)
 
 class SimplePendulum(DynamicalSystem):
     def __init__(self,g,l,mu,theta0):
@@ -120,20 +131,4 @@ class SimplePendulum(DynamicalSystem):
         return np.array([ theta_dot, -self.beta[0] / self.beta[1] * np.sin(theta) - self.beta[2] * theta_dot ])
     def get_xy(self):
         return np.array([ np.sin(self.X[0,:]), np.cos(self.X[0,:]) ])
-    
 
-
-# def get_training_data(embed_dim = 10):
-#     dynamical_system = SimplePendulum(g=9.8,l=2,mu=0.5,theta0=np.pi/2)
-#     dynamical_system.embed(n=embed_dim,mat='RANDN',mu=0,sigma=0) #embed the pendulum in a higer diminsional space with noise
-#     return { 'X' : torch.Tensor(dynamical_system.Z.T) , 'dX' : torch.Tensor(dynamical_system.dZ.T)}
-# class TrainDataset(Dataset):
-#     def __init__(self):
-#         data = get_training_data()
-#         self.X = data['X']
-#         self.dX = data['dX']
-#         self.n_samples = data['X'].shape[0]
-#     def __getitem__(self,index):
-#         return self.X[index,:],self.dX[index,:]
-#     def __len__(self):
-#         return self.n_samples
