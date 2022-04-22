@@ -73,9 +73,9 @@ class FullSINDyAutoencoder(nn.Module):
         l = {}
         l['X'] =  self.params['optimization']['loss_reg']['X']*torch.nn.functional.l2_loss(args['X'] - args['X_pred'])
         if self.params['optimization']['loss_reg']['SINDy'] > 0:
-            l['dZ'] = self.params['optimization']['loss_reg']['SINDy']*torch.nn.functional.l2_loss((args['dZ_pred'] - args['dZ'])
+            l['dZ'] = self.params['optimization']['loss_reg']['SINDy']*torch.nn.functional.l2_loss(args['dZ_pred'] - args['dZ'])
         if self.params['optimization']['loss_reg']['dX'] > 0:
-            l['dX'] = self.params['optimization']['loss_reg']['dX']*torch.nn.functional.l2_loss(args['dX_pred'] - args['dX'],ord=2)
+            l['dX'] = self.params['optimization']['loss_reg']['dX']*torch.nn.functional.l2_loss(args['dX_pred'] - args['dX'])
         if self.params['optimization']['loss_reg']['Xi1'] > 0:
             l['Xi1'] = self.params['optimization']['loss_reg']['Xi1']*torch.nn.functional.l2_loss((args['Xi'])
         if self.params['optimization']['loss_reg']['Xi2'] > 0:
