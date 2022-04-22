@@ -71,15 +71,15 @@ class FullSINDyAutoencoder(nn.Module):
         
     def loss(self,args):
         l = {}
-        l['X'] =  self.params['optimization']['loss_reg']['X']*torch.linalg.norm(args['X'] - args['X_pred'])
+        l['X'] =  self.params['optimization']['loss_reg']['X']*torch.linalg.norm(args['X'] - args['X_pred'],ord=2)**2
         if self.params['optimization']['loss_reg']['SINDy'] > 0:
-            l['dZ'] = self.params['optimization']['loss_reg']['SINDy']*torch.linalg.norm(args['dZ_pred'] - args['dZ'])
+            l['dZ'] = self.params['optimization']['loss_reg']['SINDy']*torch.linalg.norm(args['dZ_pred'] - args['dZ'],ord=2)**2
         if self.params['optimization']['loss_reg']['dX'] > 0:
-            l['dX'] = self.params['optimization']['loss_reg']['dX']*torch.matmul((args['dX_pred'] - args['dX']).T,(args['dX_pred'] - args['dX']))
+            l['dX'] = self.params['optimization']['loss_reg']['dX']*torch.np.linalg.norm(args['dX_pred'] - args['dX'],ord=2)**2
         if self.params['optimization']['loss_reg']['Xi1'] > 0:
             l['Xi1'] = self.params['optimization']['loss_reg']['Xi1']*torch.linalg.norm(args['Xi'],ord=1)
         if self.params['optimization']['loss_reg']['Xi2'] > 0:
-            l['Xi2'] = self.params['optimization']['loss_reg']['Xi2']*torch.linalg.norm(args['Xi'],ord=2)    
+            l['Xi2'] = self.params['optimization']['loss_reg']['Xi2']*torch.linalg.norm(args['Xi'],ord=2)  
         total = 0
         _str = ''
         for name in list(l):
@@ -140,7 +140,7 @@ class FullSINDyAutoencoder(nn.Module):
                             loss_dict[l] = loss_dict[l]*(loss_dict_n-1) + _loss_dict[l]
                         loss_dict_n += 1
                     
-                    optimizer.zero_grad()
+                    #optimizer.zero_grad()
                     loss.backward()
                     optimizer.step()
                 l.append(loss.item())
