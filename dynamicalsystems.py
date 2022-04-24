@@ -118,10 +118,10 @@ class Lorenz(DynamicalSystem):
     #         ax.plot(X[0][i:i+s+1], X[1][i:i+s+1], X[2][i:i+s+1], alpha=0.4)
 
 class SimplePendulum(DynamicalSystem):
-    def __init__(self,g,l,mu,theta0,random_seed=None,embed_params=None):
+    def __init__(self,g,l,mu,theta0,random_seed=None,embed_params=None,time_steps=10000,time=10):
         self.state_size = 2
-        self.time_steps = 10000
-        self.time = (0,10)
+        self.time_steps = time_steps
+        self.time = (0,time)
         self.x0 = (theta0,0)
         self.beta = beta = (g,l,mu)
         self.embed_params = {'embed_dim' : 10, 'mu' : 0,'sigma' : 0,'mu1' : 0,'sigma1' : 0,'mat' : 'RANDN'}
